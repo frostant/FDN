@@ -186,14 +186,19 @@ def variable_length_feature_process(var_len_feat, vocab_file, emb_params, sep='#
 
 def model_fn(features, labels, mode, params):
     """build Estimator model"""
+    # ------hyperparameters----
+    l2_rate = FLAGS.l2_reg
 
-    common_wgts = []
+    # 权重参数
+    common_wgts = []  # 普通参数
+    l2_reg = tf.contrib.layers.l2_regularizer(l2_rate)
+    # ------获取特征输入-------
     feat_101 = features['feat_101']
     feat_101_vocab_len = 444719 + 1
     feat_101_wgts = tf.get_variable(name='feat_101_wgts',
                                     shape=[feat_101_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_101_wgts)
     feat_101_emb = variable_length_feature_process(feat_101, vocab_file=feat_101_index_file_path,
                                                    emb_params=feat_101_wgts)  # None * E
@@ -204,7 +209,7 @@ def model_fn(features, labels, mode, params):
     feat_109_14_wgts = tf.get_variable(name='feat_109_14_wgts',
                                        shape=[feat_109_14_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                        initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                       regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                       regularizer=l2_reg)
     common_wgts.append(feat_109_14_wgts)
     feat_109_14_emb = variable_length_feature_process(feat_109_14, vocab_file=feat_109_14_index_file_path,
                                                       emb_params=feat_109_14_wgts)  # None * E
@@ -215,7 +220,7 @@ def model_fn(features, labels, mode, params):
     feat_110_14_wgts = tf.get_variable(name='feat_110_14_wgts',
                                        shape=[feat_110_14_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                        initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                       regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                       regularizer=l2_reg)
     common_wgts.append(feat_110_14_wgts)
     feat_110_14_emb = variable_length_feature_process(feat_110_14, vocab_file=feat_110_14_index_file_path,
                                                       emb_params=feat_110_14_wgts)  # None * E
@@ -226,7 +231,7 @@ def model_fn(features, labels, mode, params):
     feat_127_14_wgts = tf.get_variable(name='feat_127_14_wgts',
                                        shape=[feat_127_14_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                        initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                       regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                       regularizer=l2_reg)
     common_wgts.append(feat_127_14_wgts)
     feat_127_14_emb = variable_length_feature_process(feat_127_14, vocab_file=feat_127_14_index_file_path,
                                                       emb_params=feat_127_14_wgts)  # None * E
@@ -237,7 +242,7 @@ def model_fn(features, labels, mode, params):
     feat_150_14_wgts = tf.get_variable(name='feat_150_14_wgts',
                                        shape=[feat_150_14_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                        initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                       regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                       regularizer=l2_reg)
     common_wgts.append(feat_150_14_wgts)
     feat_150_14_emb = variable_length_feature_process(feat_150_14, vocab_file=feat_150_14_index_file_path,
                                                       emb_params=feat_150_14_wgts)  # None * E
@@ -248,7 +253,7 @@ def model_fn(features, labels, mode, params):
     feat_121_wgts = tf.get_variable(name='feat_121_wgts',
                                     shape=[feat_121_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_121_wgts)
     feat_121_emb = variable_length_feature_process(feat_121, vocab_file=feat_121_index_file_path,
                                                    emb_params=feat_121_wgts)  # None * E
@@ -259,7 +264,7 @@ def model_fn(features, labels, mode, params):
     feat_122_wgts = tf.get_variable(name='feat_122_wgts',
                                     shape=[feat_122_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_122_wgts)
     feat_122_emb = variable_length_feature_process(feat_122, vocab_file=feat_122_index_file_path,
                                                    emb_params=feat_122_wgts)  # None * E
@@ -270,7 +275,7 @@ def model_fn(features, labels, mode, params):
     feat_124_wgts = tf.get_variable(name='feat_124_wgts',
                                     shape=[feat_124_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_124_wgts)
     feat_124_emb = variable_length_feature_process(feat_124, vocab_file=feat_124_index_file_path,
                                                    emb_params=feat_124_wgts)  # None * E
@@ -281,7 +286,7 @@ def model_fn(features, labels, mode, params):
     feat_125_wgts = tf.get_variable(name='feat_125_wgts',
                                     shape=[feat_125_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_125_wgts)
     feat_125_emb = variable_length_feature_process(feat_125, vocab_file=feat_125_index_file_path,
                                                    emb_params=feat_125_wgts)  # None * E
@@ -292,7 +297,7 @@ def model_fn(features, labels, mode, params):
     feat_126_wgts = tf.get_variable(name='feat_126_wgts',
                                     shape=[feat_126_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_126_wgts)
     feat_126_emb = variable_length_feature_process(feat_126, vocab_file=feat_126_index_file_path,
                                                    emb_params=feat_126_wgts)  # None * E
@@ -303,7 +308,7 @@ def model_fn(features, labels, mode, params):
     feat_127_wgts = tf.get_variable(name='feat_127_wgts',
                                     shape=[feat_127_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_127_wgts)
     feat_127_emb = variable_length_feature_process(feat_127, vocab_file=feat_127_index_file_path,
                                                    emb_params=feat_127_wgts)  # None * E
@@ -314,7 +319,7 @@ def model_fn(features, labels, mode, params):
     feat_128_wgts = tf.get_variable(name='feat_128_wgts',
                                     shape=[feat_128_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_128_wgts)
     feat_128_emb = variable_length_feature_process(feat_128, vocab_file=feat_128_index_file_path,
                                                    emb_params=feat_128_wgts)  # None * E
@@ -325,7 +330,7 @@ def model_fn(features, labels, mode, params):
     feat_129_wgts = tf.get_variable(name='feat_129_wgts',
                                     shape=[feat_129_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_129_wgts)
     feat_129_emb = variable_length_feature_process(feat_129, vocab_file=feat_129_index_file_path,
                                                    emb_params=feat_129_wgts)  # None * E
@@ -336,7 +341,7 @@ def model_fn(features, labels, mode, params):
     feat_205_wgts = tf.get_variable(name='feat_205_wgts',
                                     shape=[feat_205_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_205_wgts)
     feat_205_emb = variable_length_feature_process(feat_205, vocab_file=feat_205_index_file_path,
                                                    emb_params=feat_205_wgts)  # None * E
@@ -347,7 +352,7 @@ def model_fn(features, labels, mode, params):
     feat_206_wgts = tf.get_variable(name='feat_206_wgts',
                                     shape=[feat_206_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_206_wgts)
     feat_206_emb = variable_length_feature_process(feat_206, vocab_file=feat_206_index_file_path,
                                                    emb_params=feat_206_wgts)  # None * E
@@ -358,7 +363,7 @@ def model_fn(features, labels, mode, params):
     feat_207_wgts = tf.get_variable(name='feat_207_wgts',
                                     shape=[feat_207_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_207_wgts)
     feat_207_emb = variable_length_feature_process(feat_207, vocab_file=feat_207_index_file_path,
                                                    emb_params=feat_207_wgts)  # None * E
@@ -369,7 +374,7 @@ def model_fn(features, labels, mode, params):
     feat_210_wgts = tf.get_variable(name='feat_210_wgts',
                                     shape=[feat_210_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_210_wgts)
     feat_210_emb = variable_length_feature_process(feat_210, vocab_file=feat_210_index_file_path,
                                                    emb_params=feat_210_wgts)  # None * E
@@ -380,7 +385,7 @@ def model_fn(features, labels, mode, params):
     feat_216_wgts = tf.get_variable(name='feat_216_wgts',
                                     shape=[feat_216_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_216_wgts)
     feat_216_emb = variable_length_feature_process(feat_216, vocab_file=feat_216_index_file_path,
                                                    emb_params=feat_216_wgts)  # None * E
@@ -391,7 +396,7 @@ def model_fn(features, labels, mode, params):
     feat_508_wgts = tf.get_variable(name='feat_508_wgts',
                                     shape=[feat_508_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_508_wgts)
     feat_508_emb = variable_length_feature_process(feat_508, vocab_file=feat_508_index_file_path,
                                                    emb_params=feat_508_wgts)  # None * E
@@ -402,7 +407,7 @@ def model_fn(features, labels, mode, params):
     feat_509_wgts = tf.get_variable(name='feat_509_wgts',
                                     shape=[feat_509_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_509_wgts)
     feat_509_emb = variable_length_feature_process(feat_509, vocab_file=feat_509_index_file_path,
                                                    emb_params=feat_509_wgts)  # None * E
@@ -413,7 +418,7 @@ def model_fn(features, labels, mode, params):
     feat_702_wgts = tf.get_variable(name='feat_702_wgts',
                                     shape=[feat_702_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_702_wgts)
     feat_702_emb = variable_length_feature_process(feat_702, vocab_file=feat_702_index_file_path,
                                                    emb_params=feat_702_wgts)  # None * E
@@ -424,7 +429,7 @@ def model_fn(features, labels, mode, params):
     feat_853_wgts = tf.get_variable(name='feat_853_wgts',
                                     shape=[feat_853_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_853_wgts)
     feat_853_emb = variable_length_feature_process(feat_853, vocab_file=feat_853_index_file_path,
                                                    emb_params=feat_853_wgts)  # None * E
@@ -435,7 +440,7 @@ def model_fn(features, labels, mode, params):
     feat_301_wgts = tf.get_variable(name='feat_301_wgts',
                                     shape=[feat_301_vocab_len, FLAGS.embedding_size], dtype=tf.float32,
                                     initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-                                    regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg))
+                                    regularizer=l2_reg)
     common_wgts.append(feat_301_wgts)
     feat_301_emb = variable_length_feature_process(feat_301, vocab_file=feat_301_index_file_path,
                                                    emb_params=feat_301_wgts)  # None * E
@@ -524,6 +529,7 @@ def model_fn(features, labels, mode, params):
         targets.append(label_ctr)
         targets.append(label_cvr)
 
+    # 预测结果导出格式设置
     predictions = {
         "prob": 0.995 * y_ctr_prediction + 0.005 * y_cvr_prediction,
         "click": y_ctr,
@@ -606,7 +612,7 @@ def model_fn(features, labels, mode, params):
     elif FLAGS.optimizer == 'Momentum':
         optimizer = tf.train.MomentumOptimizer(learning_rate=FLAGS.learning_rate, momentum=0.95)
     elif FLAGS.optimizer == 'SGD':
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=FLAGS.learning_rate)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate = FLAGS.learning_rate)
 
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 

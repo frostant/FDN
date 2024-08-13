@@ -11,7 +11,7 @@ import tensorflow as tf
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string("job_name", 'ple_train', "One of 'ps', 'worker'")
+tf.app.flags.DEFINE_string("job_name", 'san_train', "One of 'ps', 'worker'")
 tf.app.flags.DEFINE_integer("num_threads", 64, "Number of threads")
 tf.app.flags.DEFINE_integer("embedding_size", 64, "Embedding size")
 tf.app.flags.DEFINE_integer("num_epochs", 10, "Number of epochs")
@@ -141,9 +141,10 @@ def decode_line(line):
 def input_fn(filenames, batch_size=32, num_epochs=1, perform_shuffle=False):
     files = tf.data.Dataset.list_files(filenames)
 
+    # 多线程解析libsvm数据
     dataset = files.apply(
         tf.data.experimental.parallel_interleave(
-            lambda filename: tf.data.TextLineDataset(filename, buffer_size=batch_size * 32, #compression_type='GZIP',
+            lambda filename: tf.data.TextLineDataset(filename, buffer_size=batch_size * 32,  # compression_type='GZIP',
                                                      num_parallel_reads=10),
             cycle_length=len(filenames),
             buffer_output_elements=batch_size,
@@ -160,6 +161,7 @@ def input_fn(filenames, batch_size=32, num_epochs=1, perform_shuffle=False):
     dataset.cache()
 
     return dataset
+
 
 def variable_length_feature_process(var_len_feat, vocab_file, emb_params, sep='#',
                                     default_value=-1, sp_weights=None, combiner='sum'):
@@ -652,13 +654,13 @@ def main(_):
                                   device_count={'GPU': 4},
                                   intra_op_parallelism_threads=0,
                                   inter_op_parallelism_threads=0,
-                                  log_device_placement=False,
+                                  log_device_placement=False
                                   )
     config = tf.estimator.RunConfig(train_distribute=strategy, eval_distribute=strategy, session_config=config_proto,
                                     log_step_count_steps=FLAGS.log_steps, save_checkpoints_steps=FLAGS.log_steps * 10,
                                     save_summary_steps=FLAGS.log_steps * 10, tf_random_seed=2021)
 
-    PLE = tf.estimator.Estimator(model_fn=model_fn, model_dir=FLAGS.model_dir, config=config)
+    Model = tf.estimator.Estimator(model_fn=model_fn, model_dir=FLAGS.model_dir, config=config)
 
     feature_spec = {
         'feat_101': tf.placeholder(dtype=tf.string, shape=[None, ], name='feat_101'),
@@ -696,12 +698,12 @@ def main(_):
             steps=None,
             start_delay_secs=1200, throttle_secs=1200
         )
-        tf.estimator.train_and_evaluate(PLE, train_spec, eval_spec)
+        tf.estimator.train_and_evaluate(Model, train_spec, eval_spec)
     elif FLAGS.task_type == 'eval':
-        PLE.evaluate(input_fn=lambda: input_fn(va_files, num_epochs=1, batch_size=FLAGS.batch_size))
+        Model.evaluate(input_fn=lambda: input_fn(va_files, num_epochs=1, batch_size=FLAGS.batch_size))
     elif FLAGS.task_type == 'export':
         serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
-        PLE.export_savedmodel(FLAGS.servable_model_dir, serving_input_receiver_fn)
+        Model.export_savedmodel(FLAGS.servable_model_dir, serving_input_receiver_fn)
 
 
 if __name__ == "__main__":
