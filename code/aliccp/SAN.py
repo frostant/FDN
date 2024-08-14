@@ -484,6 +484,16 @@ def model_fn(features, labels, mode, params):
     def memonet_func(input):
         return input 
 
+    def build_tower(x, first_dnn_size=128, second_dnn_size=64, activation_fn=tf.nn.relu):
+        y_tower = tf.contrib.layers.fully_connected(inputs=x, num_outputs=first_dnn_size, activation_fn=activation_fn, \
+                                                    weights_regularizer=tf.contrib.layers.l2_regularizer(
+                                                        FLAGS.l2_reg), )
+        y_tower = tf.contrib.layers.fully_connected(inputs=y_tower, num_outputs=second_dnn_size,
+                                                    activation_fn=activation_fn, \
+                                                    weights_regularizer=tf.contrib.layers.l2_regularizer(
+                                                        FLAGS.l2_reg), )
+        return y_tower
+
     # def san_net(inputs): 
     #     pass 
     # meituan hinet SAN module 
@@ -506,23 +516,30 @@ def model_fn(features, labels, mode, params):
                     output = memonet_func(input) 
             task_expert.append(output)
         expert_lst.append(task_expert) 
+        # expert_lst list(list(expert))
         
         tasks_expert_output = expert_lst[:task_num] 
         share_expert_output = expert_lst[task_num]
 
         san_expe_output = [] 
         san_gate_output = []
+        pred_out = []
+        pred_y = []
 
         for i, task in enumerate(task_name): 
             other_expert_lst = [expert for j, expert in enumerate(tasks_expert_output) if j!=i] 
             other_expert = []
-            for expert in other_expert_lst: 
-                other_expert.extend(expert)
+            for experts in other_expert_lst: 
+                if use_TSN: 
+                    for j in range(i-1): 
+                        # for expert in experts: 
+                        # expert = expert * 
+                        experts = [expert * pred_out[j] for expert in experts]
+                other_expert.extend(experts)
             iself_expert = tasks_expert_output[i]
             share_expert = share_expert_output 
 
-            if use_TSN: 
-                pass 
+
             # other 
             gate_lst = []
             for j, expert in enumerate(other_expert): 
@@ -561,119 +578,40 @@ def model_fn(features, labels, mode, params):
 
             san_expe_output.append(weighted_expert) 
             san_gate_output.append(gate_weights) 
-        return san_expe_output, san_gate_output 
+        # return san_expe_output, san_gate_output 
 
-    # tencent pcg multi-task model PLE(Progressive Layered Extraction) implement
-    def ple_net(inputs, is_last, level_name):
-        # inputs: [input_task1, input_task2 ... input_taskn, shared_input]
-        inputs_final = []
-        for input in inputs:
-            input_shape = input.get_shape().as_list()
-            inputs_final.append(tf.reshape(input, shape=[-1, 1, input_shape[1]]))
-        expert_outputs = []
-        exp_per_task = list(map(int, FLAGS.exp_per_task.strip().split(',')))
-        deep_layers = list(map(int, FLAGS.deep_layers.strip().split(',')))
-        # task-specific expert part
-        for i in range(0, FLAGS.task_num):
-            for j in range(0, exp_per_task[i]):
-                inp = inputs_final[i]
-                for unit in deep_layers:
-                    inp = tf.contrib.layers.fully_connected(inputs=inp, num_outputs=unit,
-                                                            activation_fn=tf.nn.relu, \
-                                                            weights_regularizer=l2_reg)
-                expert_outputs.append(inp)  # None * 1 * 64
-        # shared expert part
-        for i in range(0, FLAGS.shared_num):
-            inp = inputs_final[-1]
-            for unit in deep_layers:
-                inp = tf.contrib.layers.fully_connected(inputs=inp, num_outputs=unit,
-                                                        activation_fn=tf.nn.relu, \
-                                                        weights_regularizer=l2_reg)
-            expert_outputs.append(inp)  # None * 1 * 64
+            # ctr
+            y_cxr = tf.concat(san_expe_output[0], axis=-1)
+            y_cxr_vec = build_tower(y_cxr)
+            y_cxr = tf.contrib.layers.fully_connected(inputs=tf.concat([y_cxr_vec], axis=-1), num_outputs=1,
+                                                    activation_fn=None, \
+                                                    weights_regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg),
+                                                    scope=str(task))
+            y_cxr = tf.reshape(y_cxr, [-1, ])
+            y_cxr_prediction = tf.sigmoid(y_cxr)
+            pred_out.append(y_cxr_prediction)
+            pred_y.append(y_cxr)
+        return pred_out, pred_y
 
-        # shared gate
-        outputs = []
-        if is_last:
-            for i in range(0, FLAGS.task_num):
-                cur_expert_num = exp_per_task[i] + FLAGS.shared_num
-                cur_gate = tf.contrib.layers.fully_connected(inputs=inputs[i], num_outputs=cur_expert_num,
-                                                             activation_fn=tf.nn.relu, \
-                                                             weights_regularizer=l2_reg)  # None * cur_expert_num
-                cur_gate_shape = cur_gate.get_shape().as_list()
-                cur_gate = tf.reshape(cur_gate, shape=[-1, cur_gate_shape[1], 1])
-                cur_gate = tf.nn.softmax(cur_gate, axis=-1)
-                # f^{k}(x) = sum_{i=1}^{n}(g^{k}(x)_{i} * f_{i}(x))
-                cur_experts = expert_outputs[i * exp_per_task[i]:(i + 1) * exp_per_task[i]] + expert_outputs[
-                                                                                              -int(FLAGS.shared_num):]
-                expert_concat = tf.concat(cur_experts, axis=1)  # None * cur_expert_num * 64
-                cur_gate_expert = tf.multiply(expert_concat, cur_gate)
-                cur_gate_expert = tf.reduce_sum(cur_gate_expert, axis=1)  # None * 64
-                outputs.append(cur_gate_expert)
-        else:
-            all_expert_num = FLAGS.shared_num
-            for expert_num in exp_per_task:
-                all_expert_num += expert_num
-            for i in range(0, FLAGS.task_num + 1):
-                cur_gate = tf.contrib.layers.fully_connected(inputs=inputs[i], num_outputs=all_expert_num,
-                                                             activation_fn=tf.nn.relu, \
-                                                             weights_regularizer=l2_reg)  # None * cur_expert_num
-                cur_gate_shape = cur_gate.get_shape().as_list()
-                cur_gate = tf.reshape(cur_gate, shape=[-1, cur_gate_shape[1], 1])
-                cur_gate = tf.nn.softmax(cur_gate, axis=-1)
-                cur_experts = expert_outputs
-                expert_concat = tf.concat(cur_experts, axis=1)  # None * all_expert_num * 64
-                cur_gate_expert = tf.multiply(expert_concat, cur_gate)
-                cur_gate_expert = tf.reduce_sum(cur_gate_expert, axis=1)  # None * 64
-                outputs.append(cur_gate_expert)
+    # task_inputs = []
+    # for i in range(FLAGS.task_num + 1):
+    #     task_inputs.append(embedding)
 
-        return outputs
-
-    task_inputs = []
-    for i in range(FLAGS.task_num + 1):
-        task_inputs.append(embedding)
-
-    for i in range(FLAGS.level_number):
-        if i == FLAGS.level_number - 1:  # final layer
-            task_outputs = ple_net(task_inputs, True, 'final-layer')
-        else:
-            task_inputs = ple_net(task_inputs, False, 'not-final-layer')
+    # for i in range(FLAGS.level_number):
+    #     if i == FLAGS.level_number - 1:  # final layer
+    #         task_outputs = ple_net(task_inputs, True, 'final-layer')
+    #     else:
+    #         task_inputs = ple_net(task_inputs, False, 'not-final-layer')
 
     task_inputs = [] 
     for i in range(FLAGS.task_num + 1): 
         task_inputs.append(embedding) 
     
-    task_inputs = san_net(task_inputs, None, 'None', list(FLAGS.feature_interaction_name.strip().split(',')))
-    task_inputs = [[task_inputs[0]], [task_inputs[1]]] # align 
-
-    def build_tower(x, first_dnn_size=128, second_dnn_size=64, activation_fn=tf.nn.relu):
-        y_tower = tf.contrib.layers.fully_connected(inputs=x, num_outputs=first_dnn_size, activation_fn=activation_fn, \
-                                                    weights_regularizer=tf.contrib.layers.l2_regularizer(
-                                                        FLAGS.l2_reg), )
-        y_tower = tf.contrib.layers.fully_connected(inputs=y_tower, num_outputs=second_dnn_size,
-                                                    activation_fn=activation_fn, \
-                                                    weights_regularizer=tf.contrib.layers.l2_regularizer(
-                                                        FLAGS.l2_reg), )
-        return y_tower
-
-    # ctr
-    y_ctr = tf.concat(task_outputs[0], axis=-1)
-    y_ctr_vec = build_tower(y_ctr)
-    y_ctr = tf.contrib.layers.fully_connected(inputs=tf.concat([y_ctr_vec], axis=-1), num_outputs=1,
-                                              activation_fn=None, \
-                                              weights_regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg),
-                                              scope='deep_out_click')
-    y_ctr = tf.reshape(y_ctr, [-1, ])
-    y_ctr_prediction = tf.sigmoid(y_ctr)
-
-    # cvr
-    y_cvr = tf.concat(task_outputs[1], axis=-1)
-    y_cvr_vec = build_tower(y_cvr)
-    y_cvr = tf.contrib.layers.fully_connected(inputs=tf.concat([y_cvr_vec], axis=-1), num_outputs=1,
-                                              activation_fn=None, \
-                                              weights_regularizer=tf.contrib.layers.l2_regularizer(FLAGS.l2_reg),
-                                              scope='deep_out_valid_play')
-    y_cvr = tf.reshape(y_cvr, [-1, ])
-    y_cvr_prediction = tf.sigmoid(y_cvr)
+    # task_inputs = san_net(task_inputs, None, 'None', list(FLAGS.feature_interaction_name.strip().split(',')))
+    # task_inputs = [[task_inputs[0]], [task_inputs[1]]] # align 
+    pred_out, pred_y = san_net(task_inputs, None, 'None', list(FLAGS.feature_interaction_name.strip().split(',')))
+    y_ctr_prediction, y_cvr_prediction = pred_out 
+    y_ctr, y_cvr = pred_y 
 
     # ------label split------
     labels = tf.split(labels, num_or_size_splits=2, axis=-1)
