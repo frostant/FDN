@@ -31,7 +31,7 @@ tf.app.flags.DEFINE_string("task_type", 'train', "task type {train, infer, eval,
 tf.app.flags.DEFINE_boolean("clear_existing_model", False, "clear existing code or not")
 tf.app.flags.DEFINE_string("pos_weights", "200,3000", "positive sample weight")
 tf.app.flags.DEFINE_integer("task_num", 2, "task num")
-tf.app.flags.DEFINE_string("vocab_index", '../data/vocab/', "feature index table")
+tf.app.flags.DEFINE_string("vocab_index", '../data/vocab_o/', "feature index table")
 
 tf.app.flags.DEFINE_string("dcp_nums", '2,2', 'dcp_nums')
 tf.app.flags.DEFINE_string("task_specific_expert_units", '128,64', 'task_specific_expert_units')
@@ -623,10 +623,14 @@ def main(_):
     print(FLAGS.data_dir)
     tr_files = glob.glob("%s/train_data/train_data.csv" % FLAGS.data_dir)
     print("tr_files:", tr_files)
-    va_files = glob.glob("%s/test_data/test_data.csv" % FLAGS.data_dir)
+    va_files = glob.glob("%s/train_data/train_data.csv" % FLAGS.data_dir)
     print("va_files:", va_files)
-    te_files = glob.glob("%s/test_data/test_data.csv" % FLAGS.data_dir)
+    te_files = glob.glob("%s/train_data/train_data.csv" % FLAGS.data_dir)
     print("te_files:", te_files)
+    # va_files = glob.glob("%s/test_data/test_data.csv" % FLAGS.data_dir)
+    # print("va_files:", va_files)
+    # te_files = glob.glob("%s/test_data/test_data.csv" % FLAGS.data_dir)
+    # print("te_files:", te_files)
 
     if FLAGS.clear_existing_model:
         try:
