@@ -10,6 +10,8 @@ import shutil
 import tensorflow as tf
 
 from .models.gdcn import GDCNS
+from .models.memonet.run_memonet import MemoNetRunner
+from .models.masknet import MaskNet 
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
 FLAGS = tf.app.flags.FLAGS
@@ -482,7 +484,9 @@ def model_fn(features, labels, mode, params):
         return output
 
     def memonet_func(input):
-        return input 
+        runner = MemoNetRunner()
+        _, concat_embedding = runner.create_model()
+        return concat_embedding
 
     def build_tower(x, first_dnn_size=128, second_dnn_size=64, activation_fn=tf.nn.relu):
         y_tower = tf.contrib.layers.fully_connected(inputs=x, num_outputs=first_dnn_size, activation_fn=activation_fn, \

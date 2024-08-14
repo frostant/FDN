@@ -110,7 +110,7 @@ class MemoNetRunner(BaseModel):
                                      dnn_dropout=self.args.dnn_dropout,
                                      init_std=self.args.init_std,
                                      seed=self.args.seed, )
-        model = memonet_model.get_model()
+        model, concat_embedding = memonet_model.get_model()
         # optimizer & loss & metrics
         optimizer = tf.keras.optimizers.Adam(learning_rate=self.args.learning_rate, beta_1=0.9, beta_2=0.999,
                                              epsilon=1e-8)
@@ -123,8 +123,7 @@ class MemoNetRunner(BaseModel):
         model.summary()
         keras.utils.plot_model(model, os.path.join(self.model_file_dir, "memonet.png"), show_shapes=True,
                                show_layer_names=True)
-        return model
-
+        return model, concat_embedding
 
 if __name__ == "__main__":
     runner = MemoNetRunner()

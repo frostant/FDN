@@ -137,9 +137,15 @@ class MemoNetModel(object):
                 [all_inputs_list, all_embeddings])
             interact_embeddings.append(interaction_hash_embeddings)
 
+        self.interact_embed = interact_embeddings 
         self.outputs = self.to_predict(interact_embeddings)
         model = tf.keras.models.Model(inputs=self.inputs_list, outputs=self.outputs)
         return model
+
+    def get_interact_embed(self): 
+        interact_embeddings = [tf.keras.layers.Flatten()(embeddings) for embeddings in interact_embeddings]
+        concat_embedding = Utils.concat_func(interact_embeddings, axis=1)
+        return concat_embedding
 
     def get_inputs(self):
         """
