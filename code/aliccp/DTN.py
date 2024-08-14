@@ -584,7 +584,7 @@ def model_fn(features, labels, mode, params):
             san_gate_output.append(gate_weights) 
         # return san_expe_output, san_gate_output 
 
-            # ctr
+            # cxr
             y_cxr = tf.concat(san_expe_output[0], axis=-1)
             y_cxr_vec = build_tower(y_cxr)
             y_cxr = tf.contrib.layers.fully_connected(inputs=tf.concat([y_cxr_vec], axis=-1), num_outputs=1,
