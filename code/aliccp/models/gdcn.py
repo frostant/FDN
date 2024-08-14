@@ -36,11 +36,12 @@ class GDCNS(Model):
     def call(self, inputs, training=None):
         out = self.embedding(inputs, training=training)
         out = tf.reshape(out, (-1, self.dim_input * self.dim_embedding))
-        out = self.cross(out, training=training)
-        out = self.projector(out, training=training)
-        out = activations.sigmoid(out)
+        out_embedding = self.cross(out, training=training)
+        
+        # out = self.projector(out, training=training)
+        # out = activations.sigmoid(out)
 
-        return out
+        return out_embedding
 
 
 class GDCNP(Model):
@@ -77,11 +78,12 @@ class GDCNP(Model):
         out_1 = self.cross(out, training=training)
         out_2 = self.mlp(out, training=training)
 
-        out = tf.concat((out_1, out_2), axis=-1)
-        out = self.projector(out, training=training)
-        out = tf.sigmoid(out)
+        out_embedding = tf.concat((out_1, out_2), axis=-1)
+        
+        # out = self.projector(out, training=training)
+        # out = tf.sigmoid(out)
 
-        return out
+        return out_embedding
 
 
 class GatedCrossNetwork(Layer):

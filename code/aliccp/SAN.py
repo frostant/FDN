@@ -9,6 +9,8 @@ import shutil
 
 import tensorflow as tf
 
+from .models.gdcn import GDCNS
+
 # os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string("job_name", 'san_train', "One of 'ps', 'worker'")
@@ -35,11 +37,14 @@ tf.app.flags.DEFINE_boolean("clear_existing_model", True, "clear existing code o
 tf.app.flags.DEFINE_string("pos_weights", "200,3000", "positive sample weight")
 tf.app.flags.DEFINE_integer("experts_num", 8, "expert num")
 tf.app.flags.DEFINE_integer("task_num", 2, "task num")
+tf.app.flags.DEFINE_string("task_name", "ctr,cvr", "task name")
 tf.app.flags.DEFINE_string("vocab_index", '../data/vocab/', "feature index table")
 tf.app.flags.DEFINE_string("loss_weights", '1.0,1.0', "loss weight")
 tf.app.flags.DEFINE_string("exp_per_task", '3,3', "expert_num per task")
 tf.app.flags.DEFINE_integer("shared_num", '2', "shared expert_num")
 tf.app.flags.DEFINE_integer("level_number", '2', "depth")
+tf.app.flags.DEFINE_string("feature_interaction_name", 'masknet,gatedcn,memonet', "depth")
+tf.app.flags.DEFINE_string("gdcn_default_params", '16,2,3,16',"dim_embed,cross,num_hiddin,dim_hidden")
 
 # log level
 logger = logging.getLogger()
@@ -457,6 +462,106 @@ def model_fn(features, labels, mode, params):
 
     embedding = tf.layers.batch_normalization(embedding)
     embedding = tf.reshape(embedding, [-1, 23 * FLAGS.embedding_size])  # None * (F * E)
+    feature_num = 23 
+
+    def fullnet_func(input):
+        output = input 
+        fcn_layer = list(map(int, FLAGS.deep_layers.strip().split(','))) 
+        for unit in fcn_layer: 
+            output = tf.contrib.layers.fully_connected(inputs = output, num_outputs=unit, activation_fn = tf.nn.relu, weights_regularizer = l2_reg) 
+        return output
+
+    def masknet_func(input):
+        
+        return input 
+    
+    def gatedcn_func(input):
+        dim_embedding, num_cross, num_hidden, dim_hidden = list(map(int, FLAGS.gdcn_default_params.strip().split(',')))
+        model = GDCNS(feature_num, FLAGS.embedding_size, dim_embedding, num_cross, num_hidden, dim_hidden)
+        output = model(input)
+        return output
+
+    def memonet_func(input):
+        return input 
+
+    # def san_net(inputs): 
+    #     pass 
+    # meituan hinet SAN module 
+    def san_net(inputs, is_last, level_name, expert_type = ["fullnet"] * 3, use_TSN = False): 
+        # dim inputs = dim task
+        task_num = FLAGS.task_num
+        task_name = list(FLAGS.task_name.strip().split(','))
+        assert len(inputs) == len(task_num) + 1
+        expert_lst = [] 
+        for input in inputs:
+            task_expert = [] 
+            for idx in range(len(expert_type)):  
+                if expert_type[idx] == "fullnet": 
+                    output = fullnet_func(input) 
+                if expert_type[idx] == "masknet": 
+                    output = masknet_func(input) 
+                if expert_type[idx] == "gatedcn": 
+                    output = gatedcn_func(input) 
+                if expert_type[idx] == 'memonet': 
+                    output = memonet_func(input) 
+            task_expert.append(output)
+        expert_lst.append(task_expert) 
+        
+        tasks_expert_output = expert_lst[:task_num] 
+        share_expert_output = expert_lst[task_num]
+
+        san_expe_output = [] 
+        san_gate_output = []
+
+        for i, task in enumerate(task_name): 
+            other_expert_lst = [expert for j, expert in enumerate(tasks_expert_output) if j!=i] 
+            other_expert = []
+            for expert in other_expert_lst: 
+                other_expert.extend(expert)
+            iself_expert = tasks_expert_output[i]
+            share_expert = share_expert_output 
+
+            if use_TSN: 
+                pass 
+            # other 
+            gate_lst = []
+            for j, expert in enumerate(other_expert): 
+                gate = tf.contrib.layers.fully_connected(inputs=expert, num_outputs=[1],
+                                                                activation_fn=tf.nn.relu, \
+                                                                weights_regularizer=l2_reg)
+                gate_lst.append(gate)
+            # share 
+            for j, expert in enumerate(share_expert): 
+                gate = tf.contrib.layers.fully_connected(inputs=expert, num_outputs=[1],
+                                                                activation_fn=tf.nn.relu, \
+                                                                weights_regularizer=l2_reg)
+                gate_lst.append(gate)
+
+            gate_output = tf.concat(gate_lst, axis = -1) 
+            gate_output = tf.nn.softmax(gate_output) 
+            gate_weights_other_share = tf.expand_dims(gate_output, axis=-1)
+            san_expert_other_share = tf.stack(other_expert + share_expert, axis = 1) 
+
+            # iself 
+            gate_lst = []
+            for j, expert in enumerate(iself_expert): 
+                gate = tf.contrib.layers.fully_connected(inputs=expert, num_outputs=[1],
+                                                                activation_fn=tf.nn.relu, \
+                                                                weights_regularizer=l2_reg)
+                gate_lst.append(gate)
+            
+            gate_output = tf.concat(gate_lst, axis = -1) 
+            gate_output = tf.nn.softmax(gate_output) 
+            gate_weights_iself = tf.expand_dims(gate_output, axis=-1) 
+            san_expert_iself = tf.stack(iself_expert, axis = 1) 
+
+            san_expert = tf.concat([san_expert_other_share, san_expert_iself], axis = 1) 
+            gate_weights = tf.concat([gate_weights_other_share, gate_weights_iself], axis = 1) 
+            weighted_expert = tf.reduce_sum(tf.math.multiply(san_expert, gate_weights), axis = -2)
+
+            san_expe_output.append(weighted_expert) 
+            san_gate_output.append(gate_weights) 
+        return san_expe_output, san_gate_output 
 
     # tencent pcg multi-task model PLE(Progressive Layered Extraction) implement
     def ple_net(inputs, is_last, level_name):
@@ -532,6 +637,13 @@ def model_fn(features, labels, mode, params):
             task_outputs = ple_net(task_inputs, True, 'final-layer')
         else:
             task_inputs = ple_net(task_inputs, False, 'not-final-layer')
+
+    task_inputs = [] 
+    for i in range(FLAGS.task_num + 1): 
+        task_inputs.append(embedding) 
+    
+    task_inputs = san_net(task_inputs, None, 'None', list(FLAGS.feature_interaction_name.strip().split(',')))
+    task_inputs = [[task_inputs[0]], [task_inputs[1]]] # align 
 
     def build_tower(x, first_dnn_size=128, second_dnn_size=64, activation_fn=tf.nn.relu):
         y_tower = tf.contrib.layers.fully_connected(inputs=x, num_outputs=first_dnn_size, activation_fn=activation_fn, \
