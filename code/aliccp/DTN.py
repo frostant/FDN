@@ -15,7 +15,7 @@ from .models.masknet import MaskNet
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string("job_name", 'san_train', "One of 'ps', 'worker'")
+tf.app.flags.DEFINE_string("job_name", 'dtn_train', "One of 'ps', 'worker'")
 tf.app.flags.DEFINE_integer("num_threads", 64, "Number of threads")
 tf.app.flags.DEFINE_integer("embedding_size", 64, "Embedding size")
 tf.app.flags.DEFINE_integer("num_epochs", 10, "Number of epochs")
@@ -37,13 +37,13 @@ tf.app.flags.DEFINE_string("servable_model_dir", './model/ple',
 tf.app.flags.DEFINE_string("task_type", 'train', "task type {train, infer, eval, export}")
 tf.app.flags.DEFINE_boolean("clear_existing_model", True, "clear existing code or not")
 tf.app.flags.DEFINE_string("pos_weights", "200,3000", "positive sample weight")
-tf.app.flags.DEFINE_integer("experts_num", 8, "expert num")
+tf.app.flags.DEFINE_integer("finets_num", 8, "finet num")
 tf.app.flags.DEFINE_integer("task_num", 2, "task num")
 tf.app.flags.DEFINE_string("task_name", "ctr,cvr", "task name")
 tf.app.flags.DEFINE_string("vocab_index", '../data/vocab/', "feature index table")
 tf.app.flags.DEFINE_string("loss_weights", '1.0,1.0', "loss weight")
-tf.app.flags.DEFINE_string("exp_per_task", '3,3', "expert_num per task")
-tf.app.flags.DEFINE_integer("shared_num", '2', "shared expert_num")
+tf.app.flags.DEFINE_string("exp_per_task", '3,3', "finet_num per task")
+tf.app.flags.DEFINE_integer("shared_num", '2', "shared finet_num")
 tf.app.flags.DEFINE_integer("level_number", '2', "depth")
 tf.app.flags.DEFINE_string("feature_interaction_name", 'masknet,gatedcn,memonet', "depth")
 tf.app.flags.DEFINE_string("gdcn_default_params", '16,2,3,16',"dim_embed,cross,num_hiddin,dim_hidden")
@@ -498,62 +498,62 @@ def model_fn(features, labels, mode, params):
                                                         FLAGS.l2_reg), )
         return y_tower
 
-    # def san_net(inputs): 
+    # def dtn_net(inputs): 
     #     pass 
-    # meituan hinet SAN module 
-    def san_net(inputs, is_last, level_name, expert_type = ["fullnet"] * 3, use_TSN = False): 
+    # meituan hinet dtn module 
+    def dtn_net(inputs, is_last, level_name, finet_type = ["fullnet"] * 3, use_TSN = False): 
         # dim inputs = dim task
         task_num = FLAGS.task_num
         task_name = list(FLAGS.task_name.strip().split(','))
         assert len(inputs) == len(task_num) + 1
-        expert_lst = [] 
+        finet_lst = [] 
         for input in inputs:
-            task_expert = [] 
-            for idx in range(len(expert_type)):  
-                if expert_type[idx] == "fullnet": 
+            task_finet = [] 
+            for idx in range(len(finet_type)):  
+                if finet_type[idx] == "fullnet": 
                     output = fullnet_func(input) 
-                if expert_type[idx] == "masknet": 
+                if finet_type[idx] == "masknet": 
                     output = masknet_func(input) 
-                if expert_type[idx] == "gatedcn": 
+                if finet_type[idx] == "gatedcn": 
                     output = gatedcn_func(input) 
-                if expert_type[idx] == 'memonet': 
+                if finet_type[idx] == 'memonet': 
                     output = memonet_func(input) 
-            task_expert.append(output)
-        expert_lst.append(task_expert) 
-        # expert_lst list(list(expert))
+            task_finet.append(output)
+        finet_lst.append(task_finet) 
+        # finet_lst list(list(finet))
         
-        tasks_expert_output = expert_lst[:task_num] 
-        share_expert_output = expert_lst[task_num]
+        tasks_finet_output = finet_lst[:task_num] 
+        share_finet_output = finet_lst[task_num]
 
-        san_expe_output = [] 
-        san_gate_output = []
+        dtn_expe_output = [] 
+        dtn_gate_output = []
         pred_out = []
         pred_y = []
 
         for i, task in enumerate(task_name): 
-            other_expert_lst = [expert for j, expert in enumerate(tasks_expert_output) if j!=i] 
-            other_expert = []
-            for experts in other_expert_lst: 
+            other_finet_lst = [finet for j, finet in enumerate(tasks_finet_output) if j!=i] 
+            other_finet = []
+            for finets in other_finet_lst: 
                 if use_TSN: 
                     for j in range(i-1): 
-                        # for expert in experts: 
-                        # expert = expert * 
-                        experts = [expert * pred_out[j] for expert in experts]
-                other_expert.extend(experts)
-            iself_expert = tasks_expert_output[i]
-            share_expert = share_expert_output 
+                        # for finet in finets: 
+                        # finet = finet * 
+                        finets = [finet * pred_out[j] for finet in finets]
+                other_finet.extend(finets)
+            iself_finet = tasks_finet_output[i]
+            share_finet = share_finet_output 
 
 
             # other 
             gate_lst = []
-            for j, expert in enumerate(other_expert): 
-                gate = tf.contrib.layers.fully_connected(inputs=expert, num_outputs=[1],
+            for j, finet in enumerate(other_finet): 
+                gate = tf.contrib.layers.fully_connected(inputs=finet, num_outputs=[1],
                                                                 activation_fn=tf.nn.relu, \
                                                                 weights_regularizer=l2_reg)
                 gate_lst.append(gate)
             # share 
-            for j, expert in enumerate(share_expert): 
-                gate = tf.contrib.layers.fully_connected(inputs=expert, num_outputs=[1],
+            for j, finet in enumerate(share_finet): 
+                gate = tf.contrib.layers.fully_connected(inputs=finet, num_outputs=[1],
                                                                 activation_fn=tf.nn.relu, \
                                                                 weights_regularizer=l2_reg)
                 gate_lst.append(gate)
@@ -561,12 +561,12 @@ def model_fn(features, labels, mode, params):
             gate_output = tf.concat(gate_lst, axis = -1) 
             gate_output = tf.nn.softmax(gate_output) 
             gate_weights_other_share = tf.expand_dims(gate_output, axis=-1)
-            san_expert_other_share = tf.stack(other_expert + share_expert, axis = 1) 
+            dtn_finet_other_share = tf.stack(other_finet + share_finet, axis = 1) 
 
             # iself 
             gate_lst = []
-            for j, expert in enumerate(iself_expert): 
-                gate = tf.contrib.layers.fully_connected(inputs=expert, num_outputs=[1],
+            for j, finet in enumerate(iself_finet): 
+                gate = tf.contrib.layers.fully_connected(inputs=finet, num_outputs=[1],
                                                                 activation_fn=tf.nn.relu, \
                                                                 weights_regularizer=l2_reg)
                 gate_lst.append(gate)
@@ -574,18 +574,18 @@ def model_fn(features, labels, mode, params):
             gate_output = tf.concat(gate_lst, axis = -1) 
             gate_output = tf.nn.softmax(gate_output) 
             gate_weights_iself = tf.expand_dims(gate_output, axis=-1) 
-            san_expert_iself = tf.stack(iself_expert, axis = 1) 
+            dtn_finet_iself = tf.stack(iself_finet, axis = 1) 
 
-            san_expert = tf.concat([san_expert_other_share, san_expert_iself], axis = 1) 
+            dtn_finet = tf.concat([dtn_finet_other_share, dtn_finet_iself], axis = 1) 
             gate_weights = tf.concat([gate_weights_other_share, gate_weights_iself], axis = 1) 
-            weighted_expert = tf.reduce_sum(tf.math.multiply(san_expert, gate_weights), axis = -2)
+            weighted_finet = tf.reduce_sum(tf.math.multiply(dtn_finet, gate_weights), axis = -2)
 
-            san_expe_output.append(weighted_expert) 
-            san_gate_output.append(gate_weights) 
-        # return san_expe_output, san_gate_output 
+            dtn_expe_output.append(weighted_finet) 
+            dtn_gate_output.append(gate_weights) 
+        # return dtn_expe_output, dtn_gate_output 
 
             # cxr
-            y_cxr = tf.concat(san_expe_output[0], axis=-1)
+            y_cxr = tf.concat(dtn_expe_output[0], axis=-1)
             y_cxr_vec = build_tower(y_cxr)
             y_cxr = tf.contrib.layers.fully_connected(inputs=tf.concat([y_cxr_vec], axis=-1), num_outputs=1,
                                                     activation_fn=None, \
@@ -611,9 +611,9 @@ def model_fn(features, labels, mode, params):
     for i in range(FLAGS.task_num + 1): 
         task_inputs.append(embedding) 
     
-    # task_inputs = san_net(task_inputs, None, 'None', list(FLAGS.feature_interaction_name.strip().split(',')))
+    # task_inputs = dtn_net(task_inputs, None, 'None', list(FLAGS.feature_interaction_name.strip().split(',')))
     # task_inputs = [[task_inputs[0]], [task_inputs[1]]] # align 
-    pred_out, pred_y = san_net(task_inputs, None, 'None', list(FLAGS.feature_interaction_name.strip().split(',')))
+    pred_out, pred_y = dtn_net(task_inputs, None, 'None', list(FLAGS.feature_interaction_name.strip().split(',')))
     y_ctr_prediction, y_cvr_prediction = pred_out 
     y_ctr, y_cvr = pred_y 
 
